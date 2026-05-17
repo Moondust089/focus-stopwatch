@@ -8,6 +8,7 @@ strPath = fso.GetParentFolderName(WScript.ScriptFullName)
 
 oShellLink.TargetPath = "cmd.exe"
 oShellLink.Arguments = "/c """ & strPath & "\run stopwatch.bat"""
+oShellLink.IconLocation = strPath & "\pink_alarm_clock_icon.ico"
 oShellLink.WindowStyle = 7
 oShellLink.WorkingDirectory = strPath
 oShellLink.Save
