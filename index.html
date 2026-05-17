@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>Focus Stopwatch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#38BDF8",
+                        background: "#0F172A",
+                        surface: "#1E293B",
+                        text: "#F8FAFC",
+                        muted: "#64748B",
+                        accent: "#F87171"
+                    },
+                    fontFamily: {
+                        display: ["Space Mono", "monospace"],
+                        ui: ["Cabinet Grotesk", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Cabinet Grotesk', sans-serif; background-color: #0F172A; color: #F8FAFC; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col items-center justify-center select-none">
+    <main class="w-full max-w-md h-full flex flex-col p-8 relative">
+        <div class="flex-1 flex flex-col items-center justify-center">
+            <h1 id="main-timer" class="font-display font-bold text-[84px] leading-none tracking-tight tabular-nums">00:00:00.00</h1>
+            <div class="w-full h-[24px] mt-2">
+                <p id="sub-timer" class="font-display font-normal text-[24px] leading-none text-muted tabular-nums text-right px-4 hidden">00:00:00.00</p>
+            </div>
+        </div>
+
+        <div id="laps-container" class="flex-1 overflow-y-auto mb-4 hidden flex-col gap-2"></div>
+
+        <div id="controls-idle" class="w-full pb-6">
+            <button onclick="startFocus()" class="w-full h-[64px] bg-primary text-background font-ui font-bold text-lg rounded-full">Start Focus</button>
+        </div>
+
+        <div id="controls-running" class="w-full pb-6 flex gap-4 hidden">
+            <button onclick="lap()" class="flex-1 h-[64px] bg-surface text-text font-ui font-bold text-lg rounded-full">Lap</button>
+            <button onclick="stopFocus()" class="flex-1 h-[64px] bg-surface text-accent font-ui font-bold text-lg rounded-full">Stop</button>
+        </div>
+
+        <div id="controls-paused" class="w-full pb-6 flex gap-4 hidden">
+            <button onclick="resetFocus()" class="flex-1 h-[64px] bg-surface text-accent font-ui font-bold text-lg rounded-full">Reset</button>
+            <button onclick="copyToExcel()" class="flex-1 h-[64px] bg-surface text-text font-ui font-bold text-lg rounded-full">Copy</button>
+            <button onclick="resumeFocus()" class="flex-1 h-[64px] bg-primary text-background font-ui font-bold text-lg rounded-full">Resume</button>
+        </div>
+    </main>
+
+    <script>
+        let startTime = 0, lapStartTime = 0, pausedTime = 0, savedTime = 0, savedLapTime = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let laps = [];
+
+        const mainTimerEl = document.getElementById('main-timer');
+        const subTimerEl = document.getElementById('sub-timer');
+        const lapsContainer = document.getElementById('laps-container');
+        const cIdle = document.getElementById('controls-idle');
+        const cRunning = document.getElementById('controls-running');
+        const cPaused = document.getElementById('controls-paused');
+
+        function saveState() {
+            localStorage.setItem('stopwatch_state', JSON.stringify({ startTime, lapStartTime, savedTime, savedLapTime, isRunning, laps }));
+        }
+
+        function loadState() {
+            if (window.location.search.includes('reset=1')) {
+                localStorage.removeItem('stopwatch_state');
+                history.replaceState({}, '', window.location.pathname);
+                return;
+            }
+            const stored = localStorage.getItem('stopwatch_state');
+            if (stored) {
+                const state = JSON.parse(stored);
+                startTime = state.startTime;
+                lapStartTime = state.lapStartTime;
+                savedTime = state.savedTime;
+                savedLapTime = state.savedLapTime;
+                isRunning = state.isRunning;
+                laps = state.laps || [];
+
+                if (isRunning) {
+                    timerInterval = setInterval(updateDisplay, 10);
+                    setUI('running');
+                } else if (savedTime > 0 || laps.length > 0) {
+                    setUI('paused');
+                } else {
+                    setUI('idle');
+                }
+                renderLaps();
+                updateDisplay();
+            }
+        }
+
+        function formatTime(ms) {
+            const hr = Math.floor(ms / 3600000).toString().padStart(2, '0');
+            const min = Math.floor((ms % 3600000) / 60000).toString().padStart(2, '0');
+            const sec = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
+            const ms10 = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
+            return `${hr}:${min}:${sec}.${ms10}`;
+        }
+
+        function formatTimeSecs(ms) {
+            const hr = Math.floor(ms / 3600000).toString().padStart(2, '0');
+            const min = Math.floor((ms % 3600000) / 60000).toString().padStart(2, '0');
+            const sec = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
+            return `${hr}:${min}:${sec}`;
+        }
+
+        function copyToExcel() {
+            const data = formatTimeSecs(savedTime);
+            navigator.clipboard.writeText(data).then(() => alert('Main timer copied!'));
+        }
+
+        function copyLap(timeStr) {
+            navigator.clipboard.writeText(timeStr).then(() => alert('Lap time copied!'));
+        }
+
+        function updateDisplay() {
+            const now = Date.now();
+            const currentTotal = isRunning ? (now - startTime + savedTime) : savedTime;
+            const currentLap = isRunning ? (now - lapStartTime + savedLapTime) : savedLapTime;
+            mainTimerEl.textContent = formatTime(currentTotal);
+            if(laps.length > 0 || isRunning) {
+                subTimerEl.textContent = formatTime(currentLap);
+                subTimerEl.classList.remove('hidden');
+            } else {
+                subTimerEl.classList.add('hidden');
+            }
+        }
+
+        function setUI(state) {
+            cIdle.classList.add('hidden');
+            cRunning.classList.add('hidden');
+            cPaused.classList.add('hidden');
+            if(state === 'idle') { cIdle.classList.remove('hidden'); lapsContainer.classList.add('hidden'); }
+            if(state === 'running') { cRunning.classList.remove('hidden'); lapsContainer.classList.remove('hidden'); }
+            if(state === 'paused') { cPaused.classList.remove('hidden'); lapsContainer.classList.remove('hidden'); }
+        }
+
+        function startFocus() {
+            startTime = lapStartTime = Date.now();
+            savedTime = savedLapTime = 0;
+            laps = [];
+            lapsContainer.innerHTML = '';
+            isRunning = true;
+            timerInterval = setInterval(updateDisplay, 10);
+            setUI('running');
+            saveState();
+        }
+
+        function stopFocus() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            const now = Date.now();
+            savedTime += now - startTime;
+            savedLapTime += now - lapStartTime;
+            setUI('paused');
+            updateDisplay();
+            saveState();
+        }
+
+        function resumeFocus() {
+            startTime = lapStartTime = Date.now();
+            isRunning = true;
+            timerInterval = setInterval(updateDisplay, 10);
+            setUI('running');
+            saveState();
+        }
+
+        function resetFocus() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            savedTime = savedLapTime = 0;
+            laps = [];
+            lapsContainer.innerHTML = '';
+            setUI('idle');
+            updateDisplay();
+            saveState();
+        }
+
+        function lap() {
+            const now = Date.now();
+            const currentLapTime = now - lapStartTime + savedLapTime;
+            const currentTotalTime = now - startTime + savedTime;
+            laps.unshift({lap: currentLapTime, total: currentTotalTime});
+            
+            lapStartTime = now;
+            savedLapTime = 0;
+
+            renderLaps();
+            saveState();
+        }
+
+        function renderLaps() {
+            lapsContainer.innerHTML = laps.map((l, i) => `
+                <div class="flex justify-between items-center py-2 border-b border-surface">
+                    <span class="text-muted font-ui w-16">Lap ${laps.length - i}</span>
+                    <span class="font-display flex-1 text-center">${formatTimeSecs(l.lap)}</span>
+                    <span class="font-display text-primary flex-1 text-right pr-4">${formatTimeSecs(l.total)}</span>
+                    <button onclick="copyLap('${formatTimeSecs(l.total)}')" class="bg-surface text-text text-xs px-2 py-1 rounded hover:bg-muted transition">Copy</button>
+                </div>
+            `).join('');
+        }
+
+        loadState();
+    </script>
+</body>
+</html>
