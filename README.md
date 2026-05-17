@@ -27,7 +27,7 @@ A minimalist stopwatch designed to anchor deep work and study sessions. Strips a
 ### Cách chạy trên máy tính mới
 1. **Tải về (Download)** toàn bộ thư mục này xuống máy tính.
 2. Mở thư mục dự án vừa tải.
-3. Bấm đúp (double-click) vào file **`run stopwatch.bat`**. File này sẽ tự động mở đồng hồ bấm giờ trên trình duyệt mặc định của bạn.
-4. *(Tùy chọn) Tạo Shortcut ra Desktop/Start:* Click chuột phải vào `run stopwatch.bat` > Chọn **Send to** > **Desktop (create shortcut)**. Sau đó bạn có thể đổi tên shortcut ngoài màn hình, click chuột phải chọn **Pin to Start** nếu muốn.
+3. Bấm đúp (double-click) vào file **`run stopwatch.bat`** để chạy.
+4. *(Tùy chọn) Pin to Start / Desktop:* Windows không cho phép Pin trực tiếp file `.bat`. Hãy sử dụng file **`Focus Stopwatch.lnk`** có sẵn trong thư mục này. Bạn có thể click chuột phải vào file `.lnk` đó và chọn **Pin to Start**, hoặc copy nó ra Desktop để dùng.
 
-*(Lưu ý: File `.bat` đã được lập trình để tự động nhận diện thư mục hiện tại `%~dp0`, nên bạn **không cần** phải mở code ra để sửa đường dẫn thủ công khi tải về máy khác!)*
+*(Lưu ý: File `.bat` đã được lập trình để tự động nhận diện thư mục hiện tại `%~dp0`, nên bạn **không cần** phải mở code ra để sửa đường dẫn khi mang sang máy khác! Tuy nhiên, file shortcut `.lnk` thì ghi nhớ đường dẫn cứng, nên khi sang máy khác bạn cần tự tạo lại shortcut bằng cách: Click phải Desktop -> New -> Shortcut -> nhập `cmd.exe /c "đường_dẫn_tới_file_run_stopwatch.bat"`)*
